@@ -1,0 +1,17 @@
+---
+# Main playbook for file server deployment
+# This playbook orchestrates the complete file server setup with Kerberos authentication
+
+- name: Deploy file server with Kerberos authentication
+  hosts: fileservers
+  become: true
+  
+  vars_files:
+    - ../group_vars/fileservers.yml
+  
+  roles:
+    - role: common
+    - role: kerberos-client
+    - role: shares
+    - role: samba
+    - role: nfs-server

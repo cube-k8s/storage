@@ -1,0 +1,49 @@
+# ---
+# # File server group variables
+# # These variables apply to all hosts in the fileservers group
+
+# # Kerberos configuration
+# krb5_realm: "CUBE.K8S"
+# krb5_kdc: "kdc.cube.k8s"
+# krb5_admin_server: "kdc.cube.k8s"
+# krb5_keytab_path: "/etc/krb5.keytab"
+
+# # Service principals (will be created if kadmin credentials provided)
+# krb5_service_principals:
+#   - "nfs/{{ ansible_fqdn }}@{{ krb5_realm }}"
+#   - "cifs/{{ ansible_fqdn }}@{{ krb5_realm }}"
+
+# # Samba configuration
+# samba_workgroup: "CUBE"
+# samba_realm: "{{ krb5_realm }}"
+# samba_security: "user"
+# samba_kerberos_method: "secrets and keytab"
+# samba_local_kdc: true  # KDC is running on the same host
+
+# # Samba shares
+# samba_shares:
+#   - name: "socialpro"
+#     path: "/srv/shares/socialpro"
+#     comment: "SocialPRO file share"
+#     read_only: no
+#     browseable: yes
+#     valid_users: "@users"
+#     create_mask: "0664"
+#     directory_mask: "0775"
+
+# # NFS exports
+# nfs_exports:
+#   - path: "/srv/shares/socialpro"
+#     clients:
+#       - host: "*.cube.k8s"
+#         options: "rw,sync,sec=krb5:krb5i:krb5p,no_subtree_check,fsid=1"
+#       - host: "*"
+#         options: "rw,sync,sec=krb5:krb5i:krb5p,no_subtree_check,fsid=1"
+
+# # Share definitions
+# shares:
+#   - path: "/srv/shares/socialpro"
+#     owner: "root"
+#     group: "users"
+#     mode: "0775"
+#     description: "SocialPRO shared storage"

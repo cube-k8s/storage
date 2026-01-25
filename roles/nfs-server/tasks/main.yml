@@ -1,0 +1,194 @@
+---
+# NFS server role - Tasks
+# Installs and configures NFS server with Kerberos authentication
+
+# Configuration validation
+- name: Validate nfs_exports structure
+  ansible.builtin.assert:
+    that:
+      - nfs_exports is defined
+      - nfs_exports is iterable
+    fail_msg: "nfs_exports must be defined and be a list"
+    success_msg: "nfs_exports is properly defined"
+  tags:
+    - nfs
+    - validation
+
+- name: Validate each NFS export has required fields
+  ansible.builtin.assert:
+    that:
+      - item.path is defined
+      - item.path | length > 0
+      - item.path is match('^/')
+      - item.clients is defined
+      - item.clients is iterable
+      - item.clients | length > 0
+    fail_msg: "NFS export must have 'path' (absolute path) and 'clients' (non-empty list)"
+    success_msg: "NFS export '{{ item.path }}' is properly configured"
+  loop: "{{ nfs_exports }}"
+  when: nfs_exports | length > 0
+  tags:
+    - nfs
+    - validation
+
+- name: Validate NFS export client configuration
+  ansible.builtin.assert:
+    that:
+      - client.host is defined
+      - client.host | length > 0
+      - client.options is defined
+      - client.options | length > 0
+    fail_msg: "Each NFS client must have 'host' and 'options' defined"
+    success_msg: "NFS client configuration is valid"
+  loop: "{{ nfs_exports | selectattr('clients', 'defined') | map(attribute='clients') | flatten }}"
+  loop_control:
+    loop_var: client
+  when: nfs_exports | length > 0
+  tags:
+    - nfs
+    - validation
+
+- name: Validate NFS exports use Kerberos security
+  ansible.builtin.assert:
+    that:
+      - "'sec=krb5' in client.options or 'sec=krb5i' in client.options or 'sec=krb5p' in client.options or 'sec=sys' in client.options"
+    fail_msg: "NFS export options must include security option (sec=sys, sec=krb5, sec=krb5i, or sec=krb5p)"
+    success_msg: "NFS export uses valid security option"
+  loop: "{{ nfs_exports | selectattr('clients', 'defined') | map(attribute='clients') | flatten }}"
+  loop_control:
+    loop_var: client
+  when: nfs_exports | length > 0
+  tags:
+    - nfs
+    - validation
+    - kerberos
+
+- name: Install NFS server packages
+  ansible.builtin.apt:
+    name: "{{ nfs_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags:
+    - nfs
+    - packages
+
+- name: Template NFS exports configuration
+  ansible.builtin.template:
+    src: exports.j2
+    dest: /etc/exports
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify:
+    - reload nfs exports
+  tags:
+    - nfs
+    - config
+
+- name: Configure NFS kernel server for Kerberos (NEED_GSSD)
+  ansible.builtin.lineinfile:
+    path: /etc/default/nfs-kernel-server
+    regexp: '^NEED_GSSD='
+    line: 'NEED_GSSD=yes'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart nfs server
+  tags:
+    - nfs
+    - kerberos
+    - config
+
+- name: Configure NFS kernel server for Kerberos (NEED_SVCGSSD)
+  ansible.builtin.lineinfile:
+    path: /etc/default/nfs-kernel-server
+    regexp: '^NEED_SVCGSSD='
+    line: 'NEED_SVCGSSD=yes'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart nfs server
+  tags:
+    - nfs
+    - kerberos
+    - config
+
+- name: Configure NFS common for Kerberos (NEED_GSSD)
+  ansible.builtin.lineinfile:
+    path: /etc/default/nfs-common
+    regexp: '^NEED_GSSD='
+    line: 'NEED_GSSD=yes'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart rpc-gssd
+  tags:
+    - nfs
+    - kerberos
+    - config
+
+- name: Enable and start rpc-gssd service
+  ansible.builtin.systemd:
+    name: rpc-gssd
+    enabled: true
+    state: started
+  tags:
+    - nfs
+    - kerberos
+    - services
+
+- name: Enable and start rpc-svcgssd service
+  ansible.builtin.systemd:
+    name: rpc-svcgssd
+    enabled: true
+    state: started
+  tags:
+    - nfs
+    - kerberos
+    - services
+
+- name: Create systemd override directory for nfs-server
+  ansible.builtin.file:
+    path: /etc/systemd/system/nfs-server.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - nfs
+    - services
+    - systemd
+
+- name: Configure nfs-server systemd dependencies
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nfs-server.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      After=network.target rpc-gssd.service
+  notify:
+    - reload systemd
+    - restart nfs server
+  tags:
+    - nfs
+    - services
+    - systemd
+
+- name: Enable and start nfs-server service
+  ansible.builtin.systemd:
+    name: nfs-server
+    enabled: true
+    state: started
+  tags:
+    - nfs
+    - services

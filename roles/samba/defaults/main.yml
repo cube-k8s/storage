@@ -1,0 +1,28 @@
+---
+# Samba role - Default variables
+
+# Samba packages to install
+samba_packages:
+  - samba
+  - samba-common-bin
+  - winbind
+
+# Samba global configuration
+samba_workgroup: "WORKGROUP"
+samba_realm: "{{ krb5_realm | default('EXAMPLE.COM') }}"
+samba_security: "user"
+samba_kerberos_method: "secrets and keytab"
+
+# Kerberos keytab path
+krb5_keytab_path: "/etc/krb5.keytab"
+
+# Samba shares (empty by default)
+samba_shares: []
+
+# Logging configuration
+samba_log_file: "/var/log/samba/log.%m"
+samba_max_log_size: 1000
+samba_log_level: "3 auth:5 winbind:5"
+
+# Set to true if Kerberos KDC is running on the same host
+samba_local_kdc: false

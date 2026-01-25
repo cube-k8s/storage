@@ -1,0 +1,16 @@
+# /etc/exports - NFS exports configuration
+# Managed by Ansible - DO NOT EDIT MANUALLY
+#
+# This file defines which directories are exported via NFS
+# and which clients can access them with what options.
+#
+# Format: <export_path> <client>(<options>)
+
+{% for export in nfs_exports %}
+{% for client in export.clients %}
+{{ export.path }} {{ client.host }}({{ client.options }})
+{% endfor %}
+{% if not loop.last %}
+
+{% endif %}
+{% endfor %}

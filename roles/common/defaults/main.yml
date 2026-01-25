@@ -1,0 +1,8 @@
+---
+# Common role - Default variables
+
+# Base packages to install on all file servers
+base_packages:
+  - python3
+  - acl
+  - attr

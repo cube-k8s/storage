@@ -1,0 +1,121 @@
+---
+# All-in-one playbook: Deploy KDC and File Server on the same host
+# This playbook deploys both Kerberos KDC and file server services
+# on a single server, which is ideal for home lab environments.
+
+- name: Deploy Kerberos KDC
+  hosts: kdc
+  become: true
+  
+  roles:
+    - role: kerberos-kdc
+      tags: kdc
+
+  post_tasks:
+    - name: Display KDC deployment status
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Kerberos KDC deployed successfully!
+          ========================================
+          Realm: {{ kdc_realm }}
+          KDC Server: {{ ansible_fqdn }}
+          
+          Service principals created:
+          {% for principal in kdc_service_principals %}
+          - {{ principal }}
+          {% endfor %}
+          
+          Proceeding to file server deployment...
+      tags: kdc
+
+- name: Deploy File Server with Kerberos authentication
+  hosts: fileservers
+  become: true
+  
+  pre_tasks:
+    - name: Wait for KDC services to be fully ready
+      ansible.builtin.wait_for:
+        port: 88
+        host: localhost
+        timeout: 30
+      tags: always
+
+  roles:
+    - role: common
+      tags: common
+    
+    - role: kerberos-client
+      tags: kerberos-client
+    
+    - role: shares
+      tags: shares
+    
+    - role: samba
+      tags: samba
+    
+    - role: nfs-server
+      tags: nfs
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          
+          ╔════════════════════════════════════════════════════════════════╗
+          ║     All-in-One File Server Deployment Complete!               ║
+          ╚════════════════════════════════════════════════════════════════╝
+          
+          Server: {{ ansible_fqdn }}
+          IP Address: {{ ansible_default_ipv4.address }}
+          
+          Services Running:
+          ✓ Kerberos KDC (port 88, 464, 749)
+          ✓ Samba/SMB (port 445)
+          ✓ NFS Server (port 2049)
+          
+          Kerberos Configuration:
+          - Realm: {{ krb5_realm }}
+          - KDC: {{ ansible_fqdn }}
+          
+          Shares Available:
+          {% for share in samba_shares %}
+          - SMB: //{{ ansible_fqdn }}/{{ share.name }}
+          {% endfor %}
+          
+          Next Steps:
+          
+          1. Create user principals on the server:
+             ssh root@{{ ansible_fqdn }}
+             kadmin.local
+             addprinc alice@{{ krb5_realm }}
+             addprinc bob@{{ krb5_realm }}
+             quit
+          
+          2. Create system users:
+             useradd -m -g users alice
+             useradd -m -g users bob
+          
+          3. From a client, configure Kerberos:
+             Edit /etc/krb5.conf:
+               [libdefaults]
+                   default_realm = {{ krb5_realm }}
+               [realms]
+                   {{ krb5_realm }} = {
+                       kdc = {{ ansible_fqdn }}
+                       admin_server = {{ ansible_fqdn }}
+                   }
+          
+          4. Test authentication:
+             kinit alice@{{ krb5_realm }}
+             klist
+          
+          5. Mount a share:
+             sudo mount -t cifs //{{ ansible_fqdn }}/socialpro /mnt/share \
+                 -o sec=krb5,user=alice
+          
+          For detailed instructions, see:
+          - docs/kdc-setup-guide.md
+          - docs/user-management-and-mounting.md
+          
+      tags: always

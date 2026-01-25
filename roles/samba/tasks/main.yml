@@ -1,0 +1,251 @@
+---
+# Samba role - Main tasks
+
+# Configuration validation
+- name: Validate samba_shares structure
+  ansible.builtin.assert:
+    that:
+      - samba_shares is defined
+      - samba_shares is iterable
+    fail_msg: "samba_shares must be defined and be a list"
+    success_msg: "samba_shares is properly defined"
+  tags:
+    - samba
+    - validation
+
+- name: Validate each Samba share has required fields
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | length > 0
+      - item.name is string
+      - item.path is defined
+      - item.path | length > 0
+      - item.path is match('^/')
+    fail_msg: "Samba share must have 'name' (non-empty string) and 'path' (absolute path starting with /)"
+    success_msg: "Samba share '{{ item.name }}' is properly configured"
+  loop: "{{ samba_shares }}"
+  when: samba_shares | length > 0
+  tags:
+    - samba
+    - validation
+
+- name: Validate samba_workgroup is defined
+  ansible.builtin.assert:
+    that:
+      - samba_workgroup is defined
+      - samba_workgroup | length > 0
+      - samba_workgroup is string
+    fail_msg: "samba_workgroup must be defined and be a non-empty string"
+    success_msg: "samba_workgroup is properly defined: {{ samba_workgroup }}"
+  tags:
+    - samba
+    - validation
+
+- name: Validate samba_realm is defined
+  ansible.builtin.assert:
+    that:
+      - samba_realm is defined
+      - samba_realm | length > 0
+      - samba_realm is string
+    fail_msg: "samba_realm must be defined and be a non-empty string"
+    success_msg: "samba_realm is properly defined: {{ samba_realm }}"
+  tags:
+    - samba
+    - validation
+
+- name: Validate samba_security mode
+  ansible.builtin.assert:
+    that:
+      - samba_security is defined
+      - samba_security in ['user', 'ads', 'domain']
+    fail_msg: "samba_security must be one of: user, ads, domain"
+    success_msg: "samba_security is valid: {{ samba_security }}"
+  tags:
+    - samba
+    - validation
+
+- name: Install Samba packages
+  ansible.builtin.apt:
+    name: "{{ samba_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags:
+    - samba
+    - packages
+
+- name: Ensure Samba configuration directory exists
+  ansible.builtin.file:
+    path: /etc/samba
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - samba
+    - config
+
+- name: Check if Kerberos keytab exists
+  ansible.builtin.stat:
+    path: "{{ krb5_keytab_path }}"
+  register: keytab_stat
+  when: krb5_keytab_path is defined
+  tags:
+    - samba
+    - kerberos
+    - config
+
+- name: Ensure Kerberos keytab is readable by Samba
+  ansible.builtin.file:
+    path: "{{ krb5_keytab_path }}"
+    owner: root
+    group: root
+    mode: '0640'
+  when: 
+    - krb5_keytab_path is defined
+    - keytab_stat.stat.exists | default(false)
+  tags:
+    - samba
+    - kerberos
+    - config
+
+- name: Template Samba configuration file
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: '0644'
+    validate: 'testparm -s %s'
+  notify: restart smbd
+  tags:
+    - samba
+    - config
+
+- name: Ensure Samba log directory exists
+  ansible.builtin.file:
+    path: /var/log/samba
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - samba
+    - logging
+
+- name: Create systemd override directory for smbd
+  ansible.builtin.file:
+    path: /etc/systemd/system/smbd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - samba
+    - systemd
+
+- name: Configure smbd systemd dependencies
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      After=network.target
+      {{ 'After=krb5-kdc.service' if samba_local_kdc | default(false) else '' }}
+    dest: /etc/systemd/system/smbd.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart smbd
+  tags:
+    - samba
+    - systemd
+
+- name: Enable smbd service
+  ansible.builtin.systemd:
+    name: smbd
+    enabled: true
+    daemon_reload: true
+  tags:
+    - samba
+    - services
+
+- name: Enable nmbd service
+  ansible.builtin.systemd:
+    name: nmbd
+    enabled: true
+  tags:
+    - samba
+    - services
+
+- name: Enable winbind service
+  ansible.builtin.systemd:
+    name: winbind
+    enabled: true
+  tags:
+    - samba
+    - services
+
+- name: Start smbd service
+  ansible.builtin.systemd:
+    name: smbd
+    state: started
+  tags:
+    - samba
+    - services
+
+- name: Start nmbd service
+  ansible.builtin.systemd:
+    name: nmbd
+    state: started
+  tags:
+    - samba
+    - services
+
+- name: Start winbind service
+  ansible.builtin.systemd:
+    name: winbind
+    state: started
+  tags:
+    - samba
+    - services
+
+- name: Validate Samba can read Kerberos keytab
+  ansible.builtin.command:
+    cmd: "klist -k {{ krb5_keytab_path }}"
+  register: keytab_validation
+  changed_when: false
+  failed_when: false
+  when: krb5_keytab_path is defined
+  tags:
+    - samba
+    - kerberos
+    - validation
+
+- name: Check if CIFS service principal exists in keytab
+  ansible.builtin.shell:
+    cmd: "klist -k {{ krb5_keytab_path }} | grep -i 'cifs/'"
+  register: cifs_principal_check
+  changed_when: false
+  failed_when: false
+  when: krb5_keytab_path is defined
+  tags:
+    - samba
+    - kerberos
+    - validation
+
+- name: Display keytab validation results
+  ansible.builtin.debug:
+    msg: |
+      Keytab validation: {{ 'SUCCESS' if keytab_validation.rc == 0 else 'FAILED' }}
+      CIFS principal found: {{ 'YES' if cifs_principal_check.rc == 0 else 'NO' }}
+      {% if keytab_validation.rc != 0 %}
+      Warning: Unable to read keytab at {{ krb5_keytab_path }}
+      {% endif %}
+      {% if cifs_principal_check.rc != 0 %}
+      Warning: CIFS service principal not found in keytab
+      {% endif %}
+  when: krb5_keytab_path is defined
+  tags:
+    - samba
+    - kerberos
+    - validation

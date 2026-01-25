@@ -1,0 +1,40 @@
+# Ansible
+*.retry
+ansible.log
+/tmp/
+
+# Fact cache
+.ansible_facts/
+
+# Secrets (use ansible-vault for these)
+*.vault
+secrets.yml
+vault.yml
+group_vars/fileservers.yml
+group_vars/kdc.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local testing
+.vagrant/
+*.box
+
+group_vars/kdc.yml
+group_vars/fileservers.yml

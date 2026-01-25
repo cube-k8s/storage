@@ -1,0 +1,67 @@
+---
+# Kerberos KDC role - Default variables
+
+# Kerberos realm configuration
+kdc_realm: "EXAMPLE.COM"
+kdc_domain: "example.com"
+
+# KDC database master password (CHANGE THIS!)
+# In production, use ansible-vault to encrypt this
+kdc_master_password: "ChangeMeToAStrongPassword"
+
+# Admin principal configuration
+kdc_admin_principal: "admin/admin"
+kdc_admin_password: "ChangeMeToAStrongPassword"
+
+# KDC packages to install
+kdc_packages:
+  - krb5-kdc
+  - krb5-admin-server
+  - krb5-config
+
+# KDC configuration
+kdc_max_life: "24h 0m 0s"
+kdc_max_renewable_life: "7d 0h 0m 0s"
+kdc_supported_enctypes:
+  - "aes256-cts-hmac-sha1-96:normal"
+  - "aes128-cts-hmac-sha1-96:normal"
+
+# ACL configuration
+kdc_acl_entries:
+  - principal: "*/admin@{{ kdc_realm }}"
+    permissions: "*"
+  - principal: "admin/admin@{{ kdc_realm }}"
+    permissions: "*"
+
+# Service principals to create (optional)
+kdc_service_principals: []
+# Example:
+# kdc_service_principals:
+#   - "nfs/fileserver.example.com@EXAMPLE.COM"
+#   - "cifs/fileserver.example.com@EXAMPLE.COM"
+
+# User principals to create (optional)
+kdc_user_principals: []
+# Example:
+# kdc_user_principals:
+#   - name: "alice"
+#     password: "password123"
+#     comment: "Alice Smith"
+#     group: "users"
+#     groups: ["developers", "admins"]  # Additional groups
+#     shell: "/bin/bash"
+#     create_home: true
+#   - name: "bob"
+#     password: "password456"
+
+# Create OS users for Kerberos principals
+# When enabled, creates Linux users matching the Kerberos principals
+kdc_create_os_users: true
+
+# Create Samba passwords for users
+# When enabled, creates Samba passwords for SMB/CIFS authentication
+# Uses the same password as the Kerberos principal
+kdc_create_samba_passwords: true
+
+# Keytab export directory (for service principals)
+kdc_keytab_export_dir: "/var/lib/krb5kdc/keytabs"

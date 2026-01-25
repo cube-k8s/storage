@@ -1,0 +1,52 @@
+---
+# Playbook to deploy MIT Kerberos KDC
+# This playbook sets up a Kerberos Key Distribution Center
+
+- name: Deploy Kerberos KDC
+  hosts: kdc
+  become: true
+  gather_facts: true
+  
+  roles:
+    - role: kerberos-kdc
+      tags: kdc
+
+  post_tasks:
+    - name: Display post-installation instructions
+      ansible.builtin.debug:
+        msg: |
+          
+          ╔════════════════════════════════════════════════════════════════╗
+          ║         Kerberos KDC Installation Complete!                    ║
+          ╚════════════════════════════════════════════════════════════════╝
+          
+          Next Steps:
+          
+          1. Configure your file server to use this KDC:
+             - Update group_vars/fileservers.yml:
+               krb5_realm: "{{ kdc_realm }}"
+               krb5_kdc: "{{ ansible_fqdn }}"
+          
+          2. Create service principals for your file server:
+             kadmin.local
+             addprinc -randkey nfs/fileserver.{{ kdc_domain }}@{{ kdc_realm }}
+             addprinc -randkey cifs/fileserver.{{ kdc_domain }}@{{ kdc_realm }}
+             ktadd -k /tmp/fileserver.keytab nfs/fileserver.{{ kdc_domain }}
+             ktadd -k /tmp/fileserver.keytab cifs/fileserver.{{ kdc_domain }}
+             quit
+          
+          3. Copy the keytab to your file server:
+             scp /tmp/fileserver.keytab root@fileserver:/etc/krb5.keytab
+          
+          4. Create user principals:
+             kadmin.local
+             addprinc alice@{{ kdc_realm }}
+             addprinc bob@{{ kdc_realm }}
+             quit
+          
+          5. Test authentication:
+             kinit {{ kdc_admin_principal }}@{{ kdc_realm }}
+             klist
+          
+          For more information, see: docs/kdc-setup-guide.md
+      tags: always

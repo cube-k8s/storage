@@ -1,0 +1,3 @@
+---
+# Shares role - Handlers
+# No handlers needed for this role as directory creation doesn't require service restarts

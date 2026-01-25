@@ -1,0 +1,25 @@
+---
+# NFS server role - Handlers
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: reload systemd
+
+- name: Reload NFS exports
+  ansible.builtin.command:
+    cmd: exportfs -ra
+  changed_when: true
+  listen: reload nfs exports
+
+- name: Restart NFS server
+  ansible.builtin.systemd:
+    name: nfs-server
+    state: restarted
+  listen: restart nfs server
+
+- name: Restart rpc-gssd
+  ansible.builtin.systemd:
+    name: rpc-gssd
+    state: restarted
+  listen: restart rpc-gssd

@@ -1,0 +1,30 @@
+# Kerberos client configuration for KDC server
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# Generated on {{ ansible_date_time.iso8601 }}
+
+[libdefaults]
+    default_realm = {{ kdc_realm }}
+    dns_lookup_realm = false
+    dns_lookup_kdc = false
+    ticket_lifetime = 24h
+    renew_lifetime = 7d
+    forwardable = true
+    rdns = false
+    default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+    default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+    permitted_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+
+[realms]
+    {{ kdc_realm }} = {
+        kdc = kdc.{{ kdc_domain }}
+        admin_server = kdc.{{ kdc_domain }}
+    }
+
+[domain_realm]
+    .{{ kdc_domain }} = {{ kdc_realm }}
+    {{ kdc_domain }} = {{ kdc_realm }}
+
+[logging]
+    kdc = FILE:/var/log/krb5kdc.log
+    admin_server = FILE:/var/log/kadmin.log
+    default = FILE:/var/log/krb5lib.log

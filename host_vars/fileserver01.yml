@@ -1,0 +1,11 @@
+---
+# Host-specific variables for fileserver01
+# Override group variables or add host-specific configuration here
+
+# Example: Host-specific shares
+# shares:
+#   - path: "/srv/shares/fileserver01-specific"
+#     owner: "root"
+#     group: "users"
+#     mode: "0775"
+#     description: "Host-specific share"

@@ -1,0 +1,58 @@
+# ---
+# # Kerberos KDC group variables
+# # These variables apply to all hosts in the kdc group
+
+# # Kerberos realm configuration
+# kdc_realm: "CUBE.K8S"
+# kdc_domain: "cube.k8s"
+
+# # IMPORTANT: Change these passwords!
+# # In production, use ansible-vault to encrypt this file:
+# #   ansible-vault encrypt group_vars/kdc.yml
+# kdc_master_password: "123456"
+# kdc_admin_password: "123456"
+
+# # Admin principal
+# kdc_admin_principal: "admin/admin"
+
+# # Ticket lifetimes
+# kdc_max_life: "24h 0m 0s"
+# kdc_max_renewable_life: "7d 0h 0m 0s"
+
+# # Encryption types (modern, secure options)
+# kdc_supported_enctypes:
+#   - "aes256-cts-hmac-sha1-96:normal"
+#   - "aes128-cts-hmac-sha1-96:normal"
+
+# # ACL entries (who can administer the KDC)
+# kdc_acl_entries:
+#   - principal: "*/admin@{{ kdc_realm }}"
+#     permissions: "*"
+#   - principal: "admin/admin@{{ kdc_realm }}"
+#     permissions: "*"
+
+# # Service principals to create automatically
+# # Uncomment and customize for your file server
+# kdc_service_principals:
+#   - "nfs/file-server.cube.k8s@{{ kdc_realm }}"
+#   - "cifs/file-server.cube.k8s@{{ kdc_realm }}"
+
+# # User principals to create automatically
+# # Uncomment and add your users
+# kdc_user_principals:
+#   - name: "my_ser"
+#     password: "123456"
+#     comment: "My User"
+#     group: "users"
+#     groups: ["sudo"]
+#     shell: "/bin/bash"
+#     create_home: true
+
+# # Create OS users for Kerberos principals
+# kdc_create_os_users: true
+
+# # Create Samba passwords for users (for SMB/CIFS authentication)
+# kdc_create_samba_passwords: true
+
+# # Keytab export directory
+# kdc_keytab_export_dir: "/var/lib/krb5kdc/keytabs"

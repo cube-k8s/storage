@@ -1,0 +1,10 @@
+# Kerberos admin ACL configuration
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# Generated on {{ ansible_date_time.iso8601 }}
+
+# Format: principal  permissions  [target_principal  [restrictions]]
+# Permissions: a=add, d=delete, m=modify, c=change-password, i=inquire, l=list, *=all
+
+{% for entry in kdc_acl_entries %}
+{{ entry.principal }}  {{ entry.permissions }}
+{% endfor %}

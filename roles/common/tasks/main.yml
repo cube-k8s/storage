@@ -1,0 +1,18 @@
+---
+# Common role - Base system configuration tasks
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags:
+    - common
+    - packages
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+  tags:
+    - common
+    - packages

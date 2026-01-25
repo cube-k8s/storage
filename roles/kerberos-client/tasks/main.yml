@@ -1,0 +1,207 @@
+---
+# Kerberos client role - Tasks
+
+# Configuration validation
+- name: Validate krb5_realm is defined and non-empty
+  ansible.builtin.assert:
+    that:
+      - krb5_realm is defined
+      - krb5_realm | length > 0
+      - krb5_realm is string
+    fail_msg: "krb5_realm must be defined and be a non-empty string"
+    success_msg: "krb5_realm is properly defined: {{ krb5_realm }}"
+  tags:
+    - kerberos
+    - validation
+
+- name: Validate krb5_kdc is defined and non-empty
+  ansible.builtin.assert:
+    that:
+      - krb5_kdc is defined
+      - krb5_kdc | length > 0
+      - krb5_kdc is string
+    fail_msg: "krb5_kdc must be defined and be a non-empty string"
+    success_msg: "krb5_kdc is properly defined: {{ krb5_kdc }}"
+  tags:
+    - kerberos
+    - validation
+
+- name: Validate krb5_realm format (uppercase recommended)
+  ansible.builtin.assert:
+    that:
+      - krb5_realm is match('^[A-Z0-9.-]+$')
+    fail_msg: "krb5_realm should be uppercase and contain only letters, numbers, dots, and hyphens"
+    success_msg: "krb5_realm format is valid"
+  tags:
+    - kerberos
+    - validation
+
+- name: Validate krb5_service_principals structure
+  ansible.builtin.assert:
+    that:
+      - krb5_service_principals is defined
+      - krb5_service_principals is iterable
+    fail_msg: "krb5_service_principals must be defined and be a list"
+    success_msg: "krb5_service_principals is properly defined"
+  tags:
+    - kerberos
+    - validation
+
+- name: Validate each service principal format
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | length > 0
+      - item is match('^[a-zA-Z0-9_-]+/[a-zA-Z0-9.-]+@[A-Z0-9.-]+$')
+    fail_msg: "Service principal '{{ item }}' must be in format: service/hostname@REALM"
+    success_msg: "Service principal '{{ item }}' format is valid"
+  loop: "{{ krb5_service_principals }}"
+  when: krb5_service_principals | length > 0
+  tags:
+    - kerberos
+    - validation
+
+- name: Validate keytab path is absolute
+  ansible.builtin.assert:
+    that:
+      - krb5_keytab_path is defined
+      - krb5_keytab_path | length > 0
+      - krb5_keytab_path is match('^/')
+    fail_msg: "krb5_keytab_path must be defined and be an absolute path (starting with /)"
+    success_msg: "krb5_keytab_path is valid: {{ krb5_keytab_path }}"
+  tags:
+    - kerberos
+    - validation
+
+- name: Install Kerberos client packages
+  ansible.builtin.apt:
+    name: "{{ krb5_packages }}"
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+  tags:
+    - kerberos
+    - packages
+
+- name: Template Kerberos client configuration
+  ansible.builtin.template:
+    src: krb5.conf.j2
+    dest: "{{ krb5_config_path }}"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  tags:
+    - kerberos
+    - config
+
+# Service principal and keytab management
+
+- name: Check if kadmin credentials are provided
+  ansible.builtin.set_fact:
+    kadmin_available: "{{ krb5_kadmin_principal != '' and krb5_kadmin_password != '' }}"
+  tags:
+    - kerberos
+    - keytab
+
+- name: Create service principals using kadmin
+  ansible.builtin.shell: |
+    echo "{{ krb5_kadmin_password }}" | kadmin -p "{{ krb5_kadmin_principal }}" -q "addprinc -randkey {{ item }}"
+  loop: "{{ krb5_service_principals }}"
+  when:
+    - kadmin_available | bool
+    - krb5_service_principals | length > 0
+  register: kadmin_addprinc
+  changed_when: "'Principal or policy already exists' not in kadmin_addprinc.stderr"
+  failed_when:
+    - kadmin_addprinc.rc != 0
+    - "'Principal or policy already exists' not in kadmin_addprinc.stderr"
+  no_log: true
+  tags:
+    - kerberos
+    - keytab
+
+- name: Export keytabs using kadmin
+  ansible.builtin.shell: |
+    echo "{{ krb5_kadmin_password }}" | kadmin -p "{{ krb5_kadmin_principal }}" -q "ktadd -k {{ krb5_keytab_path }} {{ item }}"
+  loop: "{{ krb5_service_principals }}"
+  when:
+    - kadmin_available | bool
+    - krb5_service_principals | length > 0
+  register: kadmin_ktadd
+  changed_when: "'Entry for principal' in kadmin_ktadd.stderr or 'added to keytab' in kadmin_ktadd.stderr"
+  no_log: true
+  tags:
+    - kerberos
+    - keytab
+
+- name: Copy pre-existing keytab file
+  ansible.builtin.copy:
+    src: "{{ krb5_keytab_source }}"
+    dest: "{{ krb5_keytab_path }}"
+    owner: root
+    group: root
+    mode: '0600'
+    backup: yes
+  when:
+    - not (kadmin_available | bool)
+    - krb5_keytab_source != ''
+  tags:
+    - kerberos
+    - keytab
+
+- name: Check if keytab file exists
+  ansible.builtin.stat:
+    path: "{{ krb5_keytab_path }}"
+  register: keytab_file
+  tags:
+    - kerberos
+    - keytab
+
+- name: Set proper permissions on keytab file
+  ansible.builtin.file:
+    path: "{{ krb5_keytab_path }}"
+    owner: root
+    group: root
+    mode: '0600'
+  when: keytab_file.stat.exists
+  tags:
+    - kerberos
+    - keytab
+
+- name: Validate Kerberos configuration with kinit
+  ansible.builtin.shell: |
+    echo "{{ krb5_test_password }}" | kinit "{{ krb5_test_principal }}"
+    klist
+    kdestroy
+  when:
+    - krb5_test_principal != ''
+    - krb5_test_password != ''
+  register: kinit_test
+  changed_when: false
+  no_log: true
+  tags:
+    - kerberos
+    - validation
+
+- name: Validate keytab file with klist
+  ansible.builtin.command: klist -k "{{ krb5_keytab_path }}"
+  when: krb5_service_principals | length > 0 or krb5_keytab_source != ''
+  register: klist_keytab
+  changed_when: false
+  failed_when: false
+  tags:
+    - kerberos
+    - validation
+
+- name: Display keytab contents
+  ansible.builtin.debug:
+    msg: "{{ klist_keytab.stdout_lines }}"
+  when:
+    - klist_keytab is defined
+    - klist_keytab is not skipped
+    - klist_keytab.rc is defined
+    - klist_keytab.rc == 0
+  tags:
+    - kerberos
+    - validation

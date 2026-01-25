@@ -1,0 +1,23 @@
+---
+# Shares role - Default variables
+
+# List of shares to create and manage
+# Each share should have:
+#   - path: Absolute path to the share directory (required)
+#   - owner: User owner of the directory (default: root)
+#   - group: Group owner of the directory (default: root)
+#   - mode: Permissions mode (default: "0755")
+
+# Default to empty list if not defined in group_vars or host_vars
+shares: []
+
+# Example configuration (define in group_vars/fileservers.yml):
+# shares:
+#   - path: /srv/shares/public
+#     owner: root
+#     group: users
+#     mode: "0775"
+#   - path: /srv/shares/private
+#     owner: admin
+#     group: admin
+#     mode: "0770"

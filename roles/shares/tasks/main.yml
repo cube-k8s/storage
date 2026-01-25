@@ -1,0 +1,43 @@
+---
+# Shares role - Tasks
+# Creates and manages shared directories with proper ownership and permissions
+
+- name: Validate shares configuration
+  ansible.builtin.assert:
+    that:
+      - shares is defined
+      - shares is iterable
+    fail_msg: "shares variable must be defined and be a list"
+    success_msg: "shares variable is properly defined"
+  tags:
+    - shares
+    - validation
+
+- name: Validate each share has required path
+  ansible.builtin.assert:
+    that:
+      - item.path is defined
+      - item.path | length > 0
+      - item.path is match('^/')
+    fail_msg: "Share path must be defined and be an absolute path (starting with /)"
+    success_msg: "Share path {{ item.path }} is valid"
+  loop: "{{ shares }}"
+  tags:
+    - shares
+    - validation
+
+- name: Create share directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop: "{{ shares }}"
+
+- name: Verify share directories exist and are accessible
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  register: share_stat
+  loop: "{{ shares }}"
+  failed_when: not share_stat.stat.exists or not share_stat.stat.isdir

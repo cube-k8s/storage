@@ -1,0 +1,21 @@
+---
+# NFS server role - Default variables
+
+# NFS exports configuration
+# Each export defines a path and list of clients with their options
+nfs_exports: []
+#  - path: /srv/shares/public
+#    clients:
+#      - host: "*.homelab.local"
+#        options: "rw,sync,sec=krb5:krb5i:krb5p,no_subtree_check,fsid=1"
+#      - host: "192.168.1.0/24"
+#        options: "rw,sync,sec=krb5:krb5i:krb5p,no_subtree_check,fsid=1"
+#  - path: /srv/shares/private
+#    clients:
+#      - host: "trusted-host.homelab.local"
+#        options: "rw,sync,sec=krb5p,no_subtree_check,fsid=2"
+
+# NFS packages to install
+nfs_packages:
+  - nfs-kernel-server
+  - nfs-common

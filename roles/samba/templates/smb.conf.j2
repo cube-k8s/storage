@@ -1,0 +1,61 @@
+# Samba configuration file
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# Generated on {{ ansible_date_time.iso8601 }}
+
+[global]
+    # Workgroup and realm settings
+    workgroup = {{ samba_workgroup }}
+    realm = {{ samba_realm }}
+    
+    # Security and authentication
+    security = {{ samba_security }}
+    kerberos method = {{ samba_kerberos_method }}
+    
+    # Kerberos keytab configuration
+    dedicated keytab file = {{ krb5_keytab_path }}
+    
+    # Logging configuration
+    log file = {{ samba_log_file }}
+    max log size = {{ samba_max_log_size }}
+    log level = {{ samba_log_level }}
+    
+    # Protocol settings
+    server min protocol = SMB2
+    client min protocol = SMB2
+    
+    # Performance and compatibility
+    load printers = no
+    printing = bsd
+    printcap name = /dev/null
+    disable spoolss = yes
+    
+    # Name resolution
+    dns proxy = no
+
+{% if samba_shares is defined and samba_shares | length > 0 %}
+# Share definitions
+{% for share in samba_shares %}
+
+[{{ share.name }}]
+    path = {{ share.path }}
+{% if share.comment is defined %}
+    comment = {{ share.comment }}
+{% endif %}
+    read only = {{ share.read_only | default('no') }}
+    browseable = {{ share.browseable | default('yes') }}
+{% if share.valid_users is defined %}
+    valid users = {{ share.valid_users }}
+{% endif %}
+{% if share.valid_groups is defined %}
+    valid groups = {{ share.valid_groups }}
+{% endif %}
+    create mask = {{ share.create_mask | default('0664') }}
+    directory mask = {{ share.directory_mask | default('0775') }}
+{% if share.force_user is defined %}
+    force user = {{ share.force_user }}
+{% endif %}
+{% if share.force_group is defined %}
+    force group = {{ share.force_group }}
+{% endif %}
+{% endfor %}
+{% endif %}

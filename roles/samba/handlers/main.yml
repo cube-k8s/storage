@@ -1,0 +1,27 @@
+---
+# Samba role - Handlers
+
+- name: Restart smbd
+  ansible.builtin.systemd:
+    name: smbd
+    state: restarted
+    daemon_reload: true
+  listen: restart smbd
+
+- name: Reload smbd
+  ansible.builtin.systemd:
+    name: smbd
+    state: reloaded
+  listen: reload smbd
+
+- name: Restart nmbd
+  ansible.builtin.systemd:
+    name: nmbd
+    state: restarted
+  listen: restart nmbd
+
+- name: Restart winbind
+  ansible.builtin.systemd:
+    name: winbind
+    state: restarted
+  listen: restart winbind

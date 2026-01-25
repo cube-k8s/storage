@@ -1,0 +1,42 @@
+---
+# Kerberos client role - Default variables
+
+# Kerberos realm (uppercase)
+krb5_realm: "CUBE.K8S"
+
+# Kerberos KDC server address
+krb5_kdc: "kdc.cube.k8s"
+
+# Kerberos admin server address (defaults to KDC if not specified)
+krb5_admin_server: "{{ krb5_kdc }}"
+
+# Kerberos client packages
+krb5_packages:
+  - krb5-user
+  - libpam-krb5
+
+# Kerberos configuration file path
+krb5_config_path: "/etc/krb5.conf"
+
+# Kerberos ticket lifetime
+krb5_ticket_lifetime: "24h"
+
+# Kerberos renewable ticket lifetime
+krb5_renew_lifetime: "7d"
+
+# Keytab management
+krb5_keytab_path: "/etc/krb5.keytab"
+
+# Service principals to create (list of principal names)
+krb5_service_principals: []
+
+# Kadmin credentials (optional - if provided, principals will be created automatically)
+krb5_kadmin_principal: ""
+krb5_kadmin_password: ""
+
+# Alternative: Pre-existing keytab file to copy (if kadmin not available)
+krb5_keytab_source: ""
+
+# Test principal for validation (optional - if provided, will test kinit)
+krb5_test_principal: ""
+krb5_test_password: ""
