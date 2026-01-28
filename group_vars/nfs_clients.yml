@@ -1,0 +1,21 @@
+---
+# NFS clients group variables
+# These variables apply to all hosts in the nfs_clients group
+
+# Kerberos configuration
+krb5_realm: "CUBE.K8S"
+krb5_kdc: "kdc.cube.k8s"
+krb5_admin_server: "kdc.cube.k8s"
+krb5_keytab_path: "/etc/krb5.keytab"
+
+# Service principals for NFS clients
+krb5_service_principals:
+  - "host/{{ ansible_hostname }}@{{ krb5_realm }}"
+  - "nfs/{{ ansible_hostname }}@{{ krb5_realm }}"
+
+# NFS client configuration
+nfs_domain: "cube.k8s"
+nfs_enable_kerberos: true
+nfs_enable_v4: true
+nfs_enable_v3: true
+nfs_enable_v2: false

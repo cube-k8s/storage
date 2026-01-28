@@ -1,0 +1,107 @@
+---
+# Deploy NFS Client Keytabs Playbook
+# This playbook fetches keytabs from the KDC and deploys them to NFS clients
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nfs-client-keytabs.yml
+
+- name: Fetch keytabs from KDC
+  hosts: kdc
+  become: true
+  tasks:
+    - name: Fetch host keytabs to local machine
+      ansible.builtin.fetch:
+        src: "{{ kdc_keytab_export_dir }}/host_{{ item }}_CUBE.K8S.keytab"
+        dest: "/tmp/host_{{ item }}.keytab"
+        flat: yes
+      loop:
+        - k8s-worker-01
+        - k8s-worker-02
+        - k8s-worker-03
+      tags:
+        - keytabs
+
+    - name: Fetch nfs keytabs to local machine
+      ansible.builtin.fetch:
+        src: "{{ kdc_keytab_export_dir }}/nfs_{{ item }}_CUBE.K8S.keytab"
+        dest: "/tmp/nfs_{{ item }}.keytab"
+        flat: yes
+      loop:
+        - k8s-worker-01
+        - k8s-worker-02
+        - k8s-worker-03
+      tags:
+        - keytabs
+
+- name: Deploy keytabs to NFS clients
+  hosts: nfs_clients
+  become: true
+  tasks:
+    - name: Copy host keytab to client
+      ansible.builtin.copy:
+        src: "/tmp/host_{{ ansible_hostname }}.keytab"
+        dest: /tmp/host.keytab
+        owner: root
+        group: root
+        mode: '0600'
+      tags:
+        - keytabs
+
+    - name: Copy nfs keytab to client
+      ansible.builtin.copy:
+        src: "/tmp/nfs_{{ ansible_hostname }}.keytab"
+        dest: /tmp/nfs.keytab
+        owner: root
+        group: root
+        mode: '0600'
+      tags:
+        - keytabs
+
+    - name: Merge keytabs into /etc/krb5.keytab
+      ansible.builtin.shell: |
+        rm -f /etc/krb5.keytab
+        (echo "read_kt /tmp/host.keytab"; echo "read_kt /tmp/nfs.keytab"; echo "write_kt /etc/krb5.keytab"; echo "quit") | ktutil
+        chmod 600 /etc/krb5.keytab
+        rm -f /tmp/host.keytab /tmp/nfs.keytab
+      tags:
+        - keytabs
+
+    - name: Verify keytab contents
+      ansible.builtin.command: klist -k /etc/krb5.keytab
+      register: keytab_contents
+      changed_when: false
+      tags:
+        - keytabs
+        - verify
+
+    - name: Display keytab contents
+      ansible.builtin.debug:
+        var: keytab_contents.stdout_lines
+      tags:
+        - keytabs
+        - verify
+
+    - name: Restart rpc-gssd service
+      ansible.builtin.systemd:
+        name: rpc-gssd
+        state: restarted
+      tags:
+        - keytabs
+        - services
+
+    - name: Verify rpc-gssd is running
+      ansible.builtin.systemd:
+        name: rpc-gssd
+      register: rpc_gssd_status
+      tags:
+        - keytabs
+        - services
+        - verify
+
+    - name: Display rpc-gssd status
+      ansible.builtin.debug:
+        msg: "rpc-gssd is {{ rpc_gssd_status.status.ActiveState }}"
+      tags:
+        - keytabs
+        - services
+        - verify

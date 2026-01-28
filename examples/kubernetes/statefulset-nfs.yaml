@@ -1,0 +1,75 @@
+---
+# StatefulSet with Shared NFS Storage
+# Each pod gets the same shared storage but maintains its own identity
+apiVersion: v1
+kind: Service
+metadata:
+  name: stateful-app
+  namespace: default
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: stateful-app
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-app
+  namespace: default
+spec:
+  serviceName: "stateful-app"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: stateful-app
+  template:
+    metadata:
+      labels:
+        app: stateful-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+          name: web
+        volumeMounts:
+        - name: shared-data
+          mountPath: /usr/share/nginx/html
+        - name: pod-data
+          mountPath: /var/log/nginx
+        command: ["/bin/sh"]
+        args:
+          - "-c"
+          - |
+            # Create pod-specific file in shared storage
+            echo "<h1>Pod: $HOSTNAME</h1>" > /usr/share/nginx/html/$HOSTNAME.html
+            echo "<p>Started at: $(date)</p>" >> /usr/share/nginx/html/$HOSTNAME.html
+            
+            # Create index if it doesn't exist
+            if [ ! -f /usr/share/nginx/html/index.html ]; then
+              echo "<h1>StatefulSet NFS Demo</h1>" > /usr/share/nginx/html/index.html
+              echo "<ul>" >> /usr/share/nginx/html/index.html
+            fi
+            
+            # Start nginx
+            nginx -g 'daemon off;'
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      
+      volumes:
+      - name: shared-data
+        nfs:
+          server: file-server.cube.k8s
+          path: /srv/shares/socialpro
+      - name: pod-data
+        emptyDir: {}

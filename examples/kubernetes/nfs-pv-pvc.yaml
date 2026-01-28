@@ -1,0 +1,55 @@
+---
+# PersistentVolume for NFS with Kerberos
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-socialpro-pv
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-kerberos
+  mountOptions:
+    - vers=4
+    - sec=krb5
+  nfs:
+    server: file-server.cube.k8s
+    path: /srv/shares/socialpro
+
+---
+# PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-socialpro-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-kerberos
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# Example Pod using the PVC
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-with-pvc
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: web-content
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: web-content
+    persistentVolumeClaim:
+      claimName: nfs-socialpro-pvc

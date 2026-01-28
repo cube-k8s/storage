@@ -1,0 +1,23 @@
+---
+# NFS client role - Handlers
+
+- name: restart rpc-gssd
+  ansible.builtin.systemd:
+    name: rpc-gssd
+    state: restarted
+  listen: restart rpc-gssd
+
+- name: restart nfs-idmapd
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - nfs-idmapd
+  ignore_errors: true
+  listen: restart nfs-idmapd
+
+- name: restart nfs-client
+  ansible.builtin.systemd:
+    name: nfs-client.target
+    state: restarted
+  listen: restart nfs-client

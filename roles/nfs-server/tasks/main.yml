@@ -135,6 +135,76 @@
     - kerberos
     - config
 
+- name: Enable NFSv4 in nfs.conf
+  ansible.builtin.lineinfile:
+    path: /etc/nfs.conf
+    regexp: '^\s*#?\s*vers4\s*='
+    line: ' vers4 = y'
+    insertafter: '^\[nfsd\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart nfs server
+  tags:
+    - nfs
+    - config
+
+- name: Disable NFSv2 in nfs.conf
+  ansible.builtin.lineinfile:
+    path: /etc/nfs.conf
+    regexp: '^\s*#?\s*vers2\s*='
+    line: ' vers2 = n'
+    insertafter: '^\[nfsd\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart nfs server
+  tags:
+    - nfs
+    - config
+
+- name: Ensure [General] section exists in idmapd.conf
+  ansible.builtin.lineinfile:
+    path: /etc/idmapd.conf
+    line: '[General]'
+    insertbefore: BOF
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs
+    - config
+
+- name: Configure NFSv4 domain in idmapd.conf
+  ansible.builtin.lineinfile:
+    path: /etc/idmapd.conf
+    regexp: '^\s*#?\s*Domain\s*='
+    line: 'Domain = {{ krb5_realm | lower }}'
+    insertafter: '^\[General\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart nfs server
+  tags:
+    - nfs
+    - config
+
+- name: Enable and start nfs-idmapd service
+  ansible.builtin.systemd:
+    name: nfs-idmapd
+    enabled: true
+    state: started
+  tags:
+    - nfs
+    - services
+
 - name: Enable and start rpc-gssd service
   ansible.builtin.systemd:
     name: rpc-gssd

@@ -1,0 +1,38 @@
+---
+# Simple Pod with NFS Volume using Kerberos
+# This pod mounts the NFS share directly and writes test data
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nfs-test-pod
+  namespace: default
+  labels:
+    app: nfs-test
+spec:
+  containers:
+  - name: busybox
+    image: busybox:latest
+    command: ["/bin/sh"]
+    args:
+      - "-c"
+      - |
+        echo "Starting NFS test..."
+        echo "Hostname: $(hostname)" > /mnt/data/pod-info.txt
+        echo "Date: $(date)" >> /mnt/data/pod-info.txt
+        echo "Writing test data every 10 seconds..."
+        while true; do
+          echo "$(date): Test data from $(hostname)" >> /mnt/data/test-log.txt
+          sleep 10
+        done
+    volumeMounts:
+    - name: nfs-storage
+      mountPath: /mnt/data
+  
+  volumes:
+  - name: nfs-storage
+    nfs:
+      server: file-server.cube.k8s
+      path: /srv/shares/socialpro
+      readOnly: false
+  
+  restartPolicy: Always

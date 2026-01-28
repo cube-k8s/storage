@@ -1,0 +1,230 @@
+---
+# NFS client role - Tasks
+# Configures NFS client with NFSv4 and Kerberos support
+
+- name: Install NFS client packages
+  ansible.builtin.apt:
+    name: "{{ nfs_client_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags:
+    - nfs-client
+    - packages
+
+- name: Configure NFSv4 domain in idmapd.conf
+  ansible.builtin.lineinfile:
+    path: /etc/idmapd.conf
+    regexp: '^\s*#?\s*Domain\s*='
+    line: 'Domain = {{ nfs_domain }}'
+    insertafter: '^\[General\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart nfs-idmapd
+  tags:
+    - nfs-client
+    - config
+
+- name: Ensure [General] section exists in idmapd.conf
+  ansible.builtin.lineinfile:
+    path: /etc/idmapd.conf
+    line: '[General]'
+    insertbefore: BOF
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Configure Nobody-User in idmapd.conf
+  ansible.builtin.lineinfile:
+    path: /etc/idmapd.conf
+    regexp: '^\s*#?\s*Nobody-User\s*='
+    line: 'Nobody-User = nobody'
+    insertafter: '^\[Mapping\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Configure Nobody-Group in idmapd.conf
+  ansible.builtin.lineinfile:
+    path: /etc/idmapd.conf
+    regexp: '^\s*#?\s*Nobody-Group\s*='
+    line: 'Nobody-Group = nogroup'
+    insertafter: '^\[Mapping\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Ensure [Mapping] section exists in idmapd.conf
+  ansible.builtin.lineinfile:
+    path: /etc/idmapd.conf
+    line: '[Mapping]'
+    insertafter: '^\[General\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Configure NFS common for Kerberos (NEED_GSSD)
+  ansible.builtin.lineinfile:
+    path: /etc/default/nfs-common
+    regexp: '^NEED_GSSD='
+    line: 'NEED_GSSD={{ "yes" if nfs_enable_kerberos else "no" }}'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart rpc-gssd
+  tags:
+    - nfs-client
+    - kerberos
+    - config
+
+- name: Configure NFS common for idmapd (NEED_IDMAPD)
+  ansible.builtin.lineinfile:
+    path: /etc/default/nfs-common
+    regexp: '^NEED_IDMAPD='
+    line: 'NEED_IDMAPD=yes'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart nfs-idmapd
+  tags:
+    - nfs-client
+    - config
+
+- name: Configure NFS common for statd (NEED_STATD)
+  ansible.builtin.lineinfile:
+    path: /etc/default/nfs-common
+    regexp: '^NEED_STATD='
+    line: 'NEED_STATD=yes'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Ensure [nfsd] section exists in nfs.conf
+  ansible.builtin.lineinfile:
+    path: /etc/nfs.conf
+    line: '[nfsd]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Configure NFSv4 in nfs.conf
+  ansible.builtin.lineinfile:
+    path: /etc/nfs.conf
+    regexp: '^\s*#?\s*vers4\s*='
+    line: ' vers4 = {{ "y" if nfs_enable_v4 else "n" }}'
+    insertafter: '^\[nfsd\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Configure NFSv3 in nfs.conf
+  ansible.builtin.lineinfile:
+    path: /etc/nfs.conf
+    regexp: '^\s*#?\s*vers3\s*='
+    line: ' vers3 = {{ "y" if nfs_enable_v3 else "n" }}'
+    insertafter: '^\[nfsd\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Configure NFSv2 in nfs.conf
+  ansible.builtin.lineinfile:
+    path: /etc/nfs.conf
+    regexp: '^\s*#?\s*vers2\s*='
+    line: ' vers2 = {{ "y" if nfs_enable_v2 else "n" }}'
+    insertafter: '^\[nfsd\]'
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - nfs-client
+    - config
+
+- name: Enable and start rpc-gssd service
+  ansible.builtin.systemd:
+    name: rpc-gssd
+    enabled: true
+    state: started
+  when: nfs_enable_kerberos
+  tags:
+    - nfs-client
+    - kerberos
+    - services
+
+- name: Check if nfs-idmapd service exists
+  ansible.builtin.systemd:
+    name: nfs-idmapd
+  register: nfs_idmapd_service
+  ignore_errors: true
+  tags:
+    - nfs-client
+    - services
+
+- name: Enable and start nfs-idmapd service (if available)
+  ansible.builtin.systemd:
+    name: nfs-idmapd
+    enabled: true
+    state: started
+  when: nfs_idmapd_service is succeeded
+  ignore_errors: true
+  tags:
+    - nfs-client
+    - services
+
+- name: Start nfs-idmapd via nfs-client.target
+  ansible.builtin.systemd:
+    name: nfs-client.target
+    state: restarted
+  tags:
+    - nfs-client
+    - services
+
+- name: Ensure rpc.idmapd is running
+  ansible.builtin.shell: |
+    if ! pgrep -x rpc.idmapd > /dev/null; then
+      rpc.idmapd
+    fi
+  changed_when: false
+  tags:
+    - nfs-client
+    - services

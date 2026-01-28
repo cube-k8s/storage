@@ -1,0 +1,79 @@
+---
+# Multi-Container Pod with Shared NFS Storage
+# Demonstrates multiple containers sharing the same NFS volume
+# One container writes, another reads
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi-container-nfs
+  namespace: default
+  labels:
+    app: multi-container-demo
+spec:
+  containers:
+  
+  # Writer container - writes data to NFS
+  - name: writer
+    image: busybox:latest
+    command: ["/bin/sh"]
+    args:
+      - "-c"
+      - |
+        echo "Writer container started on $(hostname)"
+        while true; do
+          timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+          echo "$timestamp - Writer: Data written from $(hostname)" >> /mnt/shared/shared-log.txt
+          echo "Wrote: $timestamp"
+          sleep 10
+        done
+    volumeMounts:
+    - name: shared-storage
+      mountPath: /mnt/shared
+  
+  # Reader container - reads data from NFS
+  - name: reader
+    image: busybox:latest
+    command: ["/bin/sh"]
+    args:
+      - "-c"
+      - |
+        echo "Reader container started on $(hostname)"
+        sleep 5
+        while true; do
+          echo "=== Last 5 lines from shared log ==="
+          tail -5 /mnt/shared/shared-log.txt 2>/dev/null || echo "Log file not yet created"
+          echo ""
+          sleep 15
+        done
+    volumeMounts:
+    - name: shared-storage
+      mountPath: /mnt/shared
+  
+  # Processor container - processes data from NFS
+  - name: processor
+    image: busybox:latest
+    command: ["/bin/sh"]
+    args:
+      - "-c"
+      - |
+        echo "Processor container started on $(hostname)"
+        sleep 10
+        while true; do
+          if [ -f /mnt/shared/shared-log.txt ]; then
+            line_count=$(wc -l < /mnt/shared/shared-log.txt)
+            echo "Processor: Total lines in log: $line_count"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - Lines: $line_count" >> /mnt/shared/stats.txt
+          fi
+          sleep 20
+        done
+    volumeMounts:
+    - name: shared-storage
+      mountPath: /mnt/shared
+  
+  volumes:
+  - name: shared-storage
+    nfs:
+      server: file-server.cube.k8s
+      path: /srv/shares/socialpro
+  
+  restartPolicy: Always

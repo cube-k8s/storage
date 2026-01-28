@@ -1,0 +1,20 @@
+---
+# NFS client role - Default variables
+
+# NFSv4 domain (should match server domain)
+nfs_domain: "{{ krb5_realm | lower }}"
+
+# NFS client packages to install
+nfs_client_packages:
+  - nfs-common
+  - krb5-user
+  - libnfsidmap2
+  - nfs4-acl-tools
+
+# Enable Kerberos support
+nfs_enable_kerberos: true
+
+# NFS versions to enable
+nfs_enable_v4: true
+nfs_enable_v3: true
+nfs_enable_v2: false

@@ -1,0 +1,37 @@
+---
+# NFS Client Configuration Playbook
+# This playbook configures NFS clients with NFSv4 and Kerberos support
+#
+# Usage:
+#   # Run on all NFS clients:
+#   ansible-playbook -i inventory/hosts.yml playbooks/nfs-client.yml
+#
+#   # Run on specific host:
+#   ansible-playbook -i inventory/hosts.yml playbooks/nfs-client.yml --limit k8s-worker-01
+
+- name: Configure NFS Client
+  hosts: nfs_clients
+  become: true
+  
+  roles:
+    - role: kerberos-client
+      tags: kerberos
+    - role: nfs-client
+      tags: nfs-client
+  
+  post_tasks:
+    - name: Display NFS client configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "NFS Client Configuration Complete!"
+          - ""
+          - "NFSv4 Domain: {{ nfs_domain }}"
+          - "Kerberos Realm: {{ krb5_realm }}"
+          - "KDC Server: {{ krb5_kdc }}"
+          - ""
+          - "Next steps:"
+          - "1. Obtain Kerberos ticket: kinit user@{{ krb5_realm }}"
+          - "2. Verify ticket: klist"
+          - "3. Mount NFS share:"
+          - "   sudo mount -t nfs -o sec=krb5,vers=4 file-server.cube.k8s:/srv/shares/socialpro /mnt/socialpro"
+      tags: always
